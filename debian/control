@@ -1,0 +1,13 @@
+Source: ros-melodic-moveit-opw-kinematics-plugin
+Section: misc
+Priority: optional
+Maintainer: Jeroen De Maeyer <jeroen.demaeyer@kuleuven.be>
+Build-Depends: debhelper (>= 9.0.0), ros-melodic-catkin, ros-melodic-eigen-conversions, ros-melodic-moveit-core, ros-melodic-moveit-resources, ros-melodic-moveit-ros-planning, ros-melodic-pluginlib, ros-melodic-roscpp, ros-melodic-rostest
+Homepage: 
+Standards-Version: 3.9.2
+
+Package: ros-melodic-moveit-opw-kinematics-plugin
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, ros-melodic-moveit-core, ros-melodic-pluginlib, ros-melodic-roscpp
+Description: MoveIt kinematics plugin for industrial robots.
+ This plugin uses an analytical inverse kinematic library, opw_kinematics, to calculate the inverse kinematics for industrial robots with 6 degrees of freedom, two parallel joints, and a spherical wrist.
