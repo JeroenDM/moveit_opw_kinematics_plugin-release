@@ -9,10 +9,12 @@ namespace testing
 {
 const double TOLERANCE = 1e-6;  // absolute tolerance for EXPECT_NEAR checks
 
+// Transform represented as Affine3T, change this to Isometry3T for future
+// versions
 template <typename T>
-using Transform = Eigen::Transform<T, 3, Eigen::Isometry>;
+using Transform = Eigen::Transform<T, 3, Eigen::Affine>;
 
-/** \brief Compare every element of two transforms.
+/** \brief Compare every element of two eigen affine3 poses.
  */
 template <typename T>
 void comparePoses(const Transform<T>& Ta, const Transform<T>& Tb)

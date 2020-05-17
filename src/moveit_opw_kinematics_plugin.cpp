@@ -1,11 +1,16 @@
 #include <class_loader/class_loader.hpp>
 #include <moveit_opw_kinematics_plugin/moveit_opw_kinematics_plugin.h>
 
-#include <moveit/kinematics_base/kinematics_base.h>
-#include <moveit/robot_state/conversions.h>
-
 // abs
 #include <cstdlib>
+
+// URDF, SRDF
+#include <srdfdom/model.h>
+#include <urdf_model/model.h>
+
+#include <moveit/kinematics_base/kinematics_base.h>
+#include <moveit/rdf_loader/rdf_loader.h>
+#include <moveit/robot_state/conversions.h>
 
 // Eigen
 #include <Eigen/Core>
@@ -28,7 +33,7 @@ MoveItOPWKinematicsPlugin::MoveItOPWKinematicsPlugin() : active_(false)
 {
 }
 
-bool MoveItOPWKinematicsPlugin::initialize(const moveit::core::RobotModel& robot_model, const std::string& group_name,
+bool MoveItOPWKinematicsPlugin::initialize(const std::string& robot_description, const std::string& group_name,
                                            const std::string& base_frame, const std::vector<std::string>& tip_frames,
                                            double search_discretization)
 {
@@ -36,7 +41,20 @@ bool MoveItOPWKinematicsPlugin::initialize(const moveit::core::RobotModel& robot
 
   ROS_INFO_STREAM_NAMED("opw", "MoveItOPWKinematicsPlugin initializing");
 
-  storeValues(robot_model, group_name, base_frame, tip_frames, search_discretization);
+  setValues(robot_description, group_name, base_frame, tip_frames, search_discretization);
+
+  rdf_loader::RDFLoader rdf_loader(robot_description_);
+  const srdf::ModelSharedPtr& srdf = rdf_loader.getSRDF();
+  const urdf::ModelInterfaceSharedPtr& urdf_model = rdf_loader.getURDF();
+
+  if (!urdf_model || !srdf)
+  {
+    ROS_ERROR_NAMED("opw", "URDF and SRDF must be loaded for OPW kinematics "
+                           "solver to work.");
+    return false;
+  }
+
+  robot_model_.reset(new robot_model::RobotModel(urdf_model, srdf));
 
   joint_model_group_ = robot_model_->getJointModelGroup(group_name);
   if (!joint_model_group_)
@@ -175,7 +193,7 @@ bool MoveItOPWKinematicsPlugin::selfTest()
   return true;
 }
 
-bool MoveItOPWKinematicsPlugin::comparePoses(Eigen::Isometry3d& Ta, Eigen::Isometry3d& Tb)
+bool MoveItOPWKinematicsPlugin::comparePoses(Eigen::Isometry3d& Ta, Eigen::Affine3d& Tb)
 {
   const float TOLERANCE = 1e-6;
 
@@ -282,44 +300,6 @@ bool MoveItOPWKinematicsPlugin::searchPositionIK(const geometry_msgs::Pose& ik_p
                           options);
 }
 
-void MoveItOPWKinematicsPlugin::expandIKSolutions(std::vector<std::vector<double>>& solutions) const
-{
-  const std::vector<const robot_model::JointModel*>& ajms = joint_model_group_->getActiveJointModels();
-  for (size_t i = 0; i < ajms.size(); ++i)
-  {
-    const robot_model::JointModel* jm = ajms[i];
-    if (jm->getVariableBounds().size() > 0)
-    {
-      for (auto& bounds : jm->getVariableBounds())
-      {
-        // todo: what to do about continuous joints
-        if (!bounds.position_bounded_)
-          continue;
-
-        std::vector<std::vector<double>> additional_solutions;
-        for (auto& sol : solutions)
-        {
-          std::vector<double> down_sol(sol);
-          while (down_sol[i] - 2.0 * M_PI > bounds.min_position_)
-          {
-            down_sol[i] -= 2.0 * M_PI;
-            additional_solutions.push_back(down_sol);
-          }
-          std::vector<double> up_sol(sol);
-          while (up_sol[i] + 2.0 * M_PI < bounds.max_position_)
-          {
-            up_sol[i] += 2.0 * M_PI;
-            additional_solutions.push_back(up_sol);
-          }
-        }
-        ROS_DEBUG_STREAM_NAMED("opw",
-                               "Found " << additional_solutions.size() << " additional solutions for j=" << i + 1);
-        solutions.insert(solutions.end(), additional_solutions.begin(), additional_solutions.end());
-      }
-    }
-  }
-}
-
 bool MoveItOPWKinematicsPlugin::searchPositionIK(const std::vector<geometry_msgs::Pose>& ik_poses,
                                                  const std::vector<double>& ik_seed_state, double /*timeout*/,
                                                  const std::vector<double>& /*consistency_limits*/,
@@ -354,7 +334,7 @@ bool MoveItOPWKinematicsPlugin::searchPositionIK(const std::vector<geometry_msgs
     return false;
   }
 
-  Eigen::Isometry3d pose;
+  Eigen::Affine3d pose;
   tf::poseMsgToEigen(ik_poses[0], pose);
   std::vector<std::vector<double>> solutions;
   if (!getAllIK(pose, solutions))
@@ -363,13 +343,6 @@ bool MoveItOPWKinematicsPlugin::searchPositionIK(const std::vector<geometry_msgs
     error_code.val = error_code.NO_IK_SOLUTION;
     return false;
   }
-
-  // for all solutions, check if solution +-360° is still inside limits
-  // An opw solution might be outside the joint limits, while the extended one is inside (e.g. asymmetric limits)
-  // therefore first extend solution space, then apply joint limits later
-  expandIKSolutions(solutions);
-
-  ROS_DEBUG_STREAM_NAMED("opw", "Now have " << solutions.size() << " potential solutions");
 
   std::vector<LimitObeyingSol> limit_obeying_solutions;
 
@@ -427,7 +400,7 @@ bool MoveItOPWKinematicsPlugin::getPositionIK(const std::vector<geometry_msgs::P
     ROS_ERROR_STREAM_NAMED("opw", "You can only get all solutions for a single pose.");
     return false;
   }
-  Eigen::Isometry3d pose;
+  Eigen::Affine3d pose;
   tf::poseMsgToEigen(ik_poses[0], pose);
   return getAllIK(pose, solutions);
 }
@@ -565,7 +538,7 @@ std::size_t MoveItOPWKinematicsPlugin::closestJointPose(const std::vector<double
   return closest;
 }
 
-bool MoveItOPWKinematicsPlugin::getAllIK(const Eigen::Isometry3d& pose,
+bool MoveItOPWKinematicsPlugin::getAllIK(const Eigen::Affine3d& pose,
                                          std::vector<std::vector<double>>& joint_poses) const
 {
   joint_poses.clear();
@@ -573,11 +546,15 @@ bool MoveItOPWKinematicsPlugin::getAllIK(const Eigen::Isometry3d& pose,
   // Transform input pose
   // needed if we introduce a tip frame different from tool0
   // or a different base frame
-  // Eigen::Isometry3d tool_pose = diff_base.inverse() * pose *
+  // Eigen::Affine3d tool_pose = diff_base.inverse() * pose *
   // tip_frame.inverse();
 
+  // convert Eigen::Affine3d to Eigen::Isometry3d for opw_kinematics
+  Eigen::Isometry3d pose_isometry;
+  pose_isometry = pose.matrix();
+
   std::array<double, 6 * 8> sols;
-  opw_kinematics::inverse(opw_parameters_, pose, sols.data());
+  opw_kinematics::inverse(opw_parameters_, pose_isometry, sols.data());
 
   // Check the output
   std::vector<double> tmp(6);  // temporary storage for API reasons
@@ -600,7 +577,7 @@ bool MoveItOPWKinematicsPlugin::getAllIK(const Eigen::Isometry3d& pose,
   return joint_poses.size() > 0;
 }
 
-bool MoveItOPWKinematicsPlugin::getIK(const Eigen::Isometry3d& pose, const std::vector<double>& seed_state,
+bool MoveItOPWKinematicsPlugin::getIK(const Eigen::Affine3d& pose, const std::vector<double>& seed_state,
                                       std::vector<double>& joint_pose) const
 {
   // Descartes Robot Model interface calls for 'closest' point to seed position
