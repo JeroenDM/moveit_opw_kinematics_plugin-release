@@ -3,6 +3,7 @@
 #include <string>
 
 #include <ros/ros.h>
+#include <moveit/robot_model_loader/robot_model_loader.h>
 #include <eigen_conversions/eigen_msg.h>
 #include <moveit_opw_kinematics_plugin/moveit_opw_kinematics_plugin.h>
 
@@ -13,16 +14,24 @@ class TestKukaSpecific : public testing::Test
 protected:
   void SetUp() override
   {
-    plugin_.initialize("robot_description", "manipulator", "base_link", "tool0", 0.1);
-  };
-  void TearDown() override{};
+    rdf_loader::RDFLoader rdf_loader("robot_description");
+    const srdf::ModelSharedPtr& srdf = rdf_loader.getSRDF();
+    const urdf::ModelInterfaceSharedPtr& urdf_model = rdf_loader.getURDF();
+
+    robot_model_.reset(new robot_model::RobotModel(urdf_model, srdf));
+    plugin_.initialize(*robot_model_.get(), "manipulator", "base_link", { "tool0" }, 0.1);
+  }
+  void TearDown() override
+  {
+  }
 
 protected:
+  robot_model::RobotModelPtr robot_model_;
   moveit_opw_kinematics_plugin::MoveItOPWKinematicsPlugin plugin_;
 };
 
 /** \Brief check forward kinematics for robot home position
- * 
+ *
  * Calculate by hand position and oriention of tool0 when all joint angles are zero
  * px = a1 + c2 + c3 + c4
  * py = 0
@@ -40,17 +49,16 @@ TEST_F(TestKukaSpecific, positionFKAllZero)
 
   plugin_.getPositionFK(plugin_.getLinkNames(), joint_angles, poses);
 
-  Eigen::Affine3d pose_actual, pose_desired;
+  Eigen::Isometry3d pose_actual, pose_desired;
   tf::poseMsgToEigen(poses[0], pose_actual);
 
-  
   pose_desired = Translation3d(0.785, 0, 0.435) * AngleAxisd(M_PI_2, Vector3d::UnitY());
 
   moveit_opw_kinematics_plugin::testing::comparePoses(pose_actual, pose_desired);
 }
 
 /** \Brief check forward kinematics for a known position
- * 
+ *
  * WARNING: Ugly add hoc test
  * This test is meant to catch errors in the specified joint_signed_corrections
  * of joint 1, 4 and 6.
@@ -70,10 +78,9 @@ TEST_F(TestKukaSpecific, positionFKCheckSigns)
 
   plugin_.getPositionFK(plugin_.getLinkNames(), joint_angles, poses);
 
-  Eigen::Affine3d pose_actual, pose_desired;
+  Eigen::Isometry3d pose_actual, pose_desired;
   tf::poseMsgToEigen(poses[0], pose_actual);
 
-  
   // rotation for the joint offset of joint 2
   pose_desired = Translation3d(0, 0, 0) * AngleAxisd(M_PI_2, Vector3d::UnitY());
 

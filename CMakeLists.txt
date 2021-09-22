@@ -1,8 +1,9 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(moveit_opw_kinematics_plugin)
 
-## Compile as C++11, supported in ROS Kinetic and newer
-add_compile_options(-std=c++11)
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -10,7 +11,6 @@ add_compile_options(-std=c++11)
 find_package(catkin REQUIRED COMPONENTS
   eigen_conversions
   moveit_core
-  moveit_ros_planning
   roscpp
   pluginlib
 )
@@ -19,6 +19,8 @@ set(MOVEIT_LIB_NAME moveit_opw_kinematics_plugin)
 
 # System dependencies are found with CMake's conventions
 find_package(Boost REQUIRED COMPONENTS filesystem)
+
+find_package(opw_kinematics REQUIRED)
 
 ###################################
 ## catkin specific configuration ##
@@ -42,7 +44,6 @@ catkin_package(
 ## Your package locations should be listed before other locations
 include_directories(
   include
-  external/opw_kinematics/include
   ${catkin_INCLUDE_DIRS}
 )
 
@@ -53,6 +54,7 @@ add_library(${MOVEIT_LIB_NAME}
 
 target_link_libraries(${MOVEIT_LIB_NAME}
   ${catkin_LIBRARIES}
+  opw_kinematics::opw_kinematics
 )
 
 #############
@@ -77,8 +79,10 @@ install(
 #############
 
 if(CATKIN_ENABLE_TESTING)
+  find_package(moveit_ros_planning REQUIRED)
   find_package(rostest REQUIRED)
-  include_directories(test)
+
+  include_directories(test ${moveit_ros_planning_INCLUDE_DIRS})
   
   add_rostest_gtest(${PROJECT_NAME}_test_kuka
     test/test_kuka.rostest test/test_plugin.cpp
@@ -86,6 +90,7 @@ if(CATKIN_ENABLE_TESTING)
   )
   target_link_libraries(${PROJECT_NAME}_test_kuka
     gtest
+    ${moveit_ros_planning_LIBRARIES}
     ${catkin_LIBRARIES}
     ${MOVEIT_LIB_NAME}
   )
@@ -96,6 +101,7 @@ if(CATKIN_ENABLE_TESTING)
   )
   target_link_libraries(${PROJECT_NAME}_test_fanuc
     gtest
+    ${moveit_ros_planning_LIBRARIES}
     ${catkin_LIBRARIES}
     ${MOVEIT_LIB_NAME}
   )
@@ -106,6 +112,7 @@ if(CATKIN_ENABLE_TESTING)
   )
   target_link_libraries(${PROJECT_NAME}_test_fanuc_faulty
     gtest
+    ${moveit_ros_planning_LIBRARIES}
     ${catkin_LIBRARIES}
     ${MOVEIT_LIB_NAME}
   )
@@ -116,6 +123,7 @@ if(CATKIN_ENABLE_TESTING)
   )
   target_link_libraries(${PROJECT_NAME}_test_kuka_faulty
     gtest
+    ${moveit_ros_planning_LIBRARIES}
     ${catkin_LIBRARIES}
     ${MOVEIT_LIB_NAME}
   )

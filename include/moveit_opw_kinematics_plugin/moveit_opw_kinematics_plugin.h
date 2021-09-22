@@ -79,16 +79,8 @@ public:
   virtual bool getPositionFK(const std::vector<std::string>& link_names, const std::vector<double>& joint_angles,
                              std::vector<geometry_msgs::Pose>& poses) const override;
 
-  virtual bool initialize(const std::string& robot_description, const std::string& group_name,
-                          const std::string& base_name, const std::string& tip_frame, double search_discretization) override
-  {
-    std::vector<std::string> tip_frames;
-    tip_frames.push_back(tip_frame);
-    return initialize(robot_description, group_name, base_name, tip_frames, search_discretization);
-  }
-
-  virtual bool initialize(const std::string& robot_description, const std::string& group_name,
-                          const std::string& base_name, const std::vector<std::string>& tip_frames,
+  virtual bool initialize(const moveit::core::RobotModel& robot_model, const std::string& group_name,
+                          const std::string& base_frame, const std::vector<std::string>& tip_frames,
                           double search_discretization) override;
 
   /**
@@ -137,9 +129,19 @@ private:
 
   static double distance(const std::vector<double>& a, const std::vector<double>& b);
   static std::size_t closestJointPose(const std::vector<double>& target,
-                               const std::vector<std::vector<double>>& candidates);
-  bool getAllIK(const Eigen::Affine3d& pose, std::vector<std::vector<double>>& joint_poses) const;
-  bool getIK(const Eigen::Affine3d& pose, const std::vector<double>& seed_state, std::vector<double>& joint_pose) const;
+                                      const std::vector<std::vector<double>>& candidates);
+  bool getAllIK(const Eigen::Isometry3d& pose, std::vector<std::vector<double>>& joint_poses) const;
+  bool getIK(const Eigen::Isometry3d& pose, const std::vector<double>& seed_state,
+             std::vector<double>& joint_pose) const;
+
+  /**
+   * @brief append IK solutions by adding +-2pi
+   *
+   * For all solutions, check if solution +-360° is still inside limits
+   * An opw solution might be outside the joint limits, while the extended one is inside (e.g. asymmetric limits)
+   * therefore this just extends the solution space, need to apply joint limits separately
+   */
+  void expandIKSolutions(std::vector<std::vector<double>>& solutions) const;
 
   /**
    * @brief check forward and inverse kinematics consistency
@@ -151,7 +153,7 @@ private:
   /**
    * @brief check if two poses are the same within an absolute tolerance of 1e-6
    */
-  bool comparePoses(Eigen::Isometry3d& Ta, Eigen::Affine3d& Tb);
+  bool comparePoses(Eigen::Isometry3d& Ta, Eigen::Isometry3d& Tb);
 
   bool active_; /** Internal variable that indicates whether solvers are configured and ready */
 
@@ -159,8 +161,7 @@ private:
 
   unsigned int dimension_; /** Dimension of the group */
 
-  robot_model::RobotModelPtr robot_model_;
-  robot_model::JointModelGroup* joint_model_group_;
+  const robot_model::JointModelGroup* joint_model_group_;
 
   robot_state::RobotStatePtr robot_state_;
 
