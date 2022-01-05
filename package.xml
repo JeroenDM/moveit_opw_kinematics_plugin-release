@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>moveit_opw_kinematics_plugin</name>
-  <version>0.3.1</version>
+  <version>0.4.0</version>
   <description>
     <p>
       MoveIt kinematics plugin for industrial robots.
@@ -13,7 +13,7 @@
     </p>
   </description>
 
-  <maintainer email="jeroen.demaeyer@kuleuven.be">Jeroen De Maeyer</maintainer>
+  <maintainer email="lousymessenger@gmail.com">Jeroen De Maeyer</maintainer>
 
   <license>Apache2.0</license>
 
