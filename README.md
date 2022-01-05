@@ -1,6 +1,7 @@
 # opw_kinematics_plugin
 
-[![Build Status](https://travis-ci.org/JeroenDM/moveit_opw_kinematics_plugin.svg?branch=melodic-devel)](https://travis-ci.org/JeroenDM/moveit_opw_kinematics_plugin)
+[![Build status Ubuntu Bionic](https://github.com/JeroenDM/moveit_opw_kinematics_plugin/actions/workflows/ci_bionic.yml/badge.svg?branch=noetic-devel)](https://github.com/JeroenDM/moveit_opw_kinematics_plugin/actions/workflows/ci_bionic.yml)
+[![Build status Ubuntu Focal](https://github.com/JeroenDM/moveit_opw_kinematics_plugin/actions/workflows/ci_focal.yml/badge.svg?branch=noetic-devel)](https://github.com/JeroenDM/moveit_opw_kinematics_plugin/actions/workflows/ci_focal.yml)
 
 An attempt at writing a [MoveIt!](https://moveit.ros.org/) plugin for [opw_kinematics](https://github.com/Jmeyer1292/opw_kinematics). The package calculates closed form inverse kinematic solutions for typical industrial robots and was created by [Jmeyer1292](https://github.com/Jmeyer1292). A MoveIt! plugin for this package could be an alternative for the [ikfast plugin](https://github.com/ros-planning/moveit/tree/kinetic-devel/moveit_kinematics/ikfast_kinematics_plugin).
 
